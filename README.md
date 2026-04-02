@@ -24,7 +24,7 @@ kflashback records the complete change history of your Kubernetes resources — 
 
 ```
 ┌──────────────────────────────────────────────────────────┐
-│                    Kubernetes Cluster                     │
+│                    Kubernetes Cluster                    │
 │                                                          │
 │  ┌──────────────────┐  ┌──────────────────┐              │
 │  │ KFlashbackConfig │  │ FlashbackPolicy  │              │
@@ -35,9 +35,9 @@ kflashback records the complete change history of your Kubernetes resources — 
 │  ┌──────────────────────────────────────────┐            │
 │  │          kflashback Controller           │            │
 │  │                                          │            │
-│  │  ┌──────────────┐  ┌─────────────────┐  │            │
-│  │  │Config Loader  │  │Policy Reconciler│  │            │
-│  │  └──────────────┘  └───────┬─────────┘  │            │
+│  │  ┌──────────────┐  ┌─────────────────┐   │            │
+│  │  │Config Loader │  │Policy Reconciler│   │            │
+│  │  └──────────────┘  └───────┬─────────┘   │            │
 │  │                            │             │            │
 │  │  ┌─────────────────────────▼──────────┐  │            │
 │  │  │    Resource Watchers (dynamic)     │  │            │
