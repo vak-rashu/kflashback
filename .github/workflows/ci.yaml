@@ -1,0 +1,123 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  # ──────────────────────────────────────────────
+  # Go: vet, lint, test, build
+  # ──────────────────────────────────────────────
+  go:
+    name: Go
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Go mod verify
+        run: go mod verify
+
+      - name: Go vet
+        run: go vet ./...
+
+      - name: Go lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
+
+      - name: Go test
+        run: go test -race -coverprofile=cover.out -covermode=atomic ./...
+
+      - name: Go build
+        run: go build -o /dev/null ./cmd/kflashback/
+
+      - name: Upload coverage
+        if: github.event_name == 'push'
+        uses: actions/upload-artifact@v4
+        with:
+          name: go-coverage
+          path: cover.out
+
+  # ──────────────────────────────────────────────
+  # UI: lint, type-check, build
+  # ──────────────────────────────────────────────
+  ui:
+    name: UI
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ui
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type check
+        run: npx tsc --noEmit
+
+      - name: Build
+        run: npm run build
+
+  # ──────────────────────────────────────────────
+  # Docker: build image (no push on PRs)
+  # ──────────────────────────────────────────────
+  docker:
+    name: Docker build
+    runs-on: ubuntu-latest
+    needs: [go, ui]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          tags: ghcr.io/kflashback/kflashback:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ──────────────────────────────────────────────
+  # Manifests: validate YAML and CRDs
+  # ──────────────────────────────────────────────
+  manifests:
+    name: Validate manifests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install kubeval
+        run: |
+          wget -q https://github.com/instrumenta/kubeval/releases/latest/download/kubeval-linux-amd64.tar.gz
+          tar xf kubeval-linux-amd64.tar.gz
+          sudo mv kubeval /usr/local/bin/
+
+      - name: Validate Kubernetes manifests
+        run: |
+          kubeval --strict --ignore-missing-schemas \
+            config/manager/deployment.yaml \
+            config/rbac/role.yaml \
+            config/rbac/role_binding.yaml \
+            config/rbac/service_account.yaml \
+            config/samples/sample-config.yaml \
+            config/samples/sample-config-postgres.yaml \
+            config/samples/sample-policy.yaml
