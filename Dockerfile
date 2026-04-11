@@ -1,5 +1,5 @@
 # Build stage
-FROM golang:1.22-alpine AS builder
+FROM golang:1.25-alpine AS builder
 
 RUN apk add --no-cache git
 
@@ -17,7 +17,7 @@ FROM node:20-alpine AS ui-builder
 
 WORKDIR /ui
 
-COPY ui/package.json ui/package-lock.json* ./
+COPY ui/package.json ui/package-lock.json* ui/.npmrc* ./
 RUN npm ci
 
 COPY ui/ .
