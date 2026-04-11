@@ -34,6 +34,7 @@ jobs:
         uses: golangci/golangci-lint-action@v6
         with:
           version: latest
+          install-mode: goinstall
 
       - name: Go test
         run: go test -race -coverprofile=cover.out -covermode=atomic ./...
@@ -70,7 +71,7 @@ jobs:
         run: npm ci
 
       - name: Type check
-        run: npx tsc --noEmit
+        run: ./node_modules/.bin/tsc --noEmit
 
       - name: Build
         run: npm run build
