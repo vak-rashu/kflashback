@@ -76,9 +76,9 @@ type ResourceListQuery struct {
 
 // StorageStats provides storage statistics.
 type StorageStats struct {
-	TotalResources int64 `json:"totalResources"`
-	TotalRevisions int64 `json:"totalRevisions"`
-	StorageBytes   int64 `json:"storageBytes"`
+	TotalResources int64      `json:"totalResources"`
+	TotalRevisions int64      `json:"totalRevisions"`
+	StorageBytes   int64      `json:"storageBytes"`
 	OldestRevision *time.Time `json:"oldestRevision,omitempty"`
 	NewestRevision *time.Time `json:"newestRevision,omitempty"`
 }
@@ -93,10 +93,10 @@ type KindStats struct {
 
 // DiffResult represents the diff between two revisions.
 type DiffResult struct {
-	FromRevision int64           `json:"fromRevision"`
-	ToRevision   int64           `json:"toRevision"`
-	Patch        []byte          `json:"patch"`
-	ChangedPaths []string        `json:"changedPaths"`
-	FromSnapshot []byte          `json:"fromSnapshot"`
-	ToSnapshot   []byte          `json:"toSnapshot"`
+	FromRevision int64    `json:"fromRevision"`
+	ToRevision   int64    `json:"toRevision"`
+	Patch        []byte   `json:"patch"`
+	ChangedPaths []string `json:"changedPaths"`
+	FromSnapshot []byte   `json:"fromSnapshot"`
+	ToSnapshot   []byte   `json:"toSnapshot"`
 }

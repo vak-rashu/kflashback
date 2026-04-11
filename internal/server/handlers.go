@@ -32,10 +32,10 @@ type apiMeta struct {
 }
 
 type diffResponse struct {
-	FromRevision int64    `json:"fromRevision"`
-	ToRevision   int64    `json:"toRevision"`
+	FromRevision int64           `json:"fromRevision"`
+	ToRevision   int64           `json:"toRevision"`
 	Patch        json.RawMessage `json:"patch"`
-	ChangedPaths []string `json:"changedPaths"`
+	ChangedPaths []string        `json:"changedPaths"`
 	FromSnapshot json.RawMessage `json:"fromSnapshot,omitempty"`
 	ToSnapshot   json.RawMessage `json:"toSnapshot,omitempty"`
 }
