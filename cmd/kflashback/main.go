@@ -12,12 +12,13 @@ import (
 
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/dynamic"
+	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	flashbackv1alpha1 "github.com/kflashback/kflashback/api/v1alpha1"
 	"github.com/kflashback/kflashback/internal/config"
@@ -117,8 +118,11 @@ func main() {
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:                 scheme,
 		HealthProbeBindAddress: cfg.HealthAddress,
-		LeaderElection:         cfg.LeaderElection,
-		LeaderElectionID:       "kflashback.flashback.io",
+		Metrics: metricsserver.Options{
+			BindAddress: cfg.MetricsAddress,
+		},
+		LeaderElection:   cfg.LeaderElection,
+		LeaderElectionID: "kflashback.flashback.io",
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to create manager")
