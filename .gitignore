@@ -39,3 +39,4 @@ ui/.env.local
 # Temp
 tmp/
 *.log
+test.out

@@ -37,7 +37,10 @@ jobs:
           install-mode: goinstall
 
       - name: Go test
-        run: go test -race -coverprofile=cover.out -covermode=atomic ./...
+        run: go test -race -coverprofile=cover.out -covermode=atomic ./... 2>&1 | tee test.out
+
+      - name: Enforce coverage (85% minimum per package)
+        run: ./scripts/check-coverage.sh 85 test.out
 
       - name: Go build
         run: go build -o /dev/null ./cmd/kflashback/
@@ -48,6 +51,25 @@ jobs:
         with:
           name: go-coverage
           path: cover.out
+
+  # ──────────────────────────────────────────────
+  # Integration tests (only on push to main)
+  # ──────────────────────────────────────────────
+  integration:
+    name: Integration tests
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+    needs: [go]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Run integration tests
+        run: go test -race -tags=integration -v ./...
 
   # ──────────────────────────────────────────────
   # UI: lint, type-check, build
@@ -70,10 +92,7 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Type check
-        run: npm run typecheck
-
-      - name: Build
+      - name: Build (includes tsc type check)
         run: npm run build
 
   # ──────────────────────────────────────────────
