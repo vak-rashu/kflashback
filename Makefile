@@ -1,4 +1,4 @@
-IMG ?= ghcr.io/kflashback/kflashback:latest
+IMG ?= ghcr.io/prashanthjos/kflashback:latest
 BINARY ?= kflashback
 
 .PHONY: all build run test lint docker-build docker-push install deploy clean ui-build ui-dev help

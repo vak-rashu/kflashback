@@ -115,7 +115,7 @@ jobs:
         with:
           context: .
           push: false
-          tags: ghcr.io/kflashback/kflashback:ci
+          tags: ghcr.io/prashanthjos/kflashback:ci
           cache-from: type=gha
           cache-to: type=gha,mode=max
 

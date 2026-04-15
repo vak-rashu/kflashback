@@ -167,7 +167,25 @@ kubectl apply -f config/samples/sample-config-postgres.yaml
 >
 > This means you can also inject credentials by mounting a Secret as an environment variable in the Deployment, which works well with cloud provider integrations (AWS Secrets Manager, GCP Secret Manager, HashiCorp Vault, etc.).
 
-### 4. Deploy the controller
+### 4. Build and load the container image
+
+No pre-built image is published yet — build it locally:
+
+```bash
+make docker-build
+```
+
+Then load it into your cluster:
+
+```bash
+# kind
+kind load docker-image ghcr.io/prashanthjos/kflashback:latest
+
+# minikube
+minikube image load ghcr.io/prashanthjos/kflashback:latest
+```
+
+### 5. Deploy the controller
 
 ```bash
 kubectl apply -f config/manager/
@@ -175,7 +193,7 @@ kubectl apply -f config/manager/
 
 This creates the `kflashback-system` namespace, a Deployment, PVC, and Service.
 
-### 5. Create a tracking policy
+### 6. Create a tracking policy
 
 ```yaml
 apiVersion: flashback.io/v1alpha1
@@ -213,7 +231,7 @@ spec:
 kubectl apply -f config/samples/sample-policy.yaml
 ```
 
-### 6. Access the dashboard
+### 7. Access the dashboard
 
 ```bash
 kubectl port-forward -n kflashback-system svc/kflashback-api 9090:9090
