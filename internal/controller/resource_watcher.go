@@ -417,6 +417,11 @@ func (h *resourceEventHandler) OnUpdate(oldObj, newObj interface{}) {
 		return
 	}
 
+	firstSeen := now
+	if existing != nil && !existing.FirstSeen.IsZero() {
+		firstSeen = existing.FirstSeen
+	}
+
 	record := &storage.TrackedResourceRecord{
 		UID:             uid,
 		APIVersion:      newU.GetAPIVersion(),
@@ -424,7 +429,7 @@ func (h *resourceEventHandler) OnUpdate(oldObj, newObj interface{}) {
 		Namespace:       newU.GetNamespace(),
 		Name:            newU.GetName(),
 		CurrentRevision: revision,
-		FirstSeen:       now,
+		FirstSeen:       firstSeen,
 		LastSeen:        now,
 		PolicyName:      h.policy.Name,
 	}
