@@ -416,12 +416,12 @@ func (h *resourceEventHandler) OnUpdate(oldObj, newObj interface{}) {
 		log.Error(err, "failed to store update revision")
 		return
 	}
-	
+
 	firstSeen := now
 	if existing != nil && !existing.FirstSeen.IsZero() {
 		firstSeen = existing.FirstSeen
 	}
-	
+
 	record := &storage.TrackedResourceRecord{
 		UID:             uid,
 		APIVersion:      newU.GetAPIVersion(),
