@@ -149,10 +149,50 @@ jobs:
   # E2E Tests: Run only on Push to main branch
   # ──────────────────────────────────────────────
 
-  e2e:
+  sql_e2e:
     name: Run Controller E2E Test
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' && github.ref_name == 'main'
+    #if: github.event_name == 'push' && github.ref_name == 'main'
     needs: [go, docker, manifests, integration, ui]
 
-    
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup SQLite Tests
+        env:
+          STORAGE_BACKEND: sqlite
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Run E2E Test
+        run:  go test -race -tags=e2e -v ./...
+  
+  # postgres_e2e:
+  #   runs-on: ubuntu-latest
+
+  #   services:
+  #     postgres:
+  #       image: postgres:latest
+  #       env:
+  #         POSTGRES_PASSWORD: postgres
+  #         POSTGRES_DB: e2e_test_db
+  #       options: >-
+  #         --health-cmd pg_isready
+  #         --health-interval 10s
+  #         --health-timeout 5s
+  #         --health-retries 5
+  #       ports:
+  #         - 5432:5432
+  #   steps:
+  #     - uses: actions/checkout@v4
+
+  #     - uses: actions/setup-go@v5
+  #       with:
+  #         go-version-file: go.mod
+  #         cache: true
+
+  #     - name: Run E2E Test
+  #       run:  go test -race -tags=e2e -v ./...
