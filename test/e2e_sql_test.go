@@ -30,35 +30,36 @@ var (
 	rbacPath           = "../config/rbac/"
 	controllerPath     = "../config/manager/"
 	trackingPolicyPath = "../config/samples/sample-policy.yaml"
-	sqlitePath = "../config/sample/sample-config.yaml"
-	postgresPath = "../config/samples/sample-config-postgres.yaml"
+	sqlitePath         = "../config/samples/sample-config.yaml"
+	dockerFile         = "../Dockerfile"
+	//postgresPath       = "../config/samples/sample-config-postgres.yaml"
 
 	// namespace name
 	namespace = "kflashback-system"
 )
 
 // get the db backend
-func getFunc() string {
-	dbtype := os.Getenv("STORAGE_BACKEND")
-	log.Printf("Using storage backend: %s", dbtype)
+// func getFunc() string {
+// 	dbtype := os.Getenv("STORAGE_BACKEND")
+// 	log.Printf("Using storage backend: %s", dbtype)
 
-	return dbtype
+// 	return dbtype
 
-	// if dbtype == "sqlite" {
-	// 	return setupSQLite
-	// } else {
-	// 	return setupPostgres
-	// }
-}
+// 	// if dbtype == "sqlite" {
+// 	// 	return setupSQLite
+// 	// } else {
+// 	// 	return setupPostgres
+// 	// }
+// }
 
 func TestMain(m *testing.M) {
 
 	testenv = env.New()
 	kindClusterName := envconf.RandomName("kind-cluster", 10)
 	kindCluster := kind.NewCluster(kindClusterName)
-	dbtype := getFunc()
+	// dbtype := getFunc()
 
-	backendDB := getFunc()
+	// backendDB := getFunc()
 
 	testenv.Setup(
 		envfuncs.CreateCluster(kindCluster, kindClusterName),
@@ -75,7 +76,7 @@ func TestMain(m *testing.M) {
 		},
 
 		// installing RBAC policy
-		func(ctx context.Context, c *envconf.Config) (context.Context, error) {
+		func(ctx context.Context, cfg *envconf.Config) (context.Context, error) {
 			log.Println("Install RBAC")
 			if p := utils.RunCommand(fmt.Sprintf("kubectl apply -f %s", rbacPath)); p.Err() != nil {
 				log.Printf("Failed to deploy kflashback RBAC Policy: %s: %s", p.Err(), p.Out())
@@ -85,11 +86,7 @@ func TestMain(m *testing.M) {
 			return ctx, nil
 		},
 
-		// if dbtype == "sqlite"{
-			
-		// } ,
-
-		func setupSQLite(ctx context.Context, cfg *envconf.Config) (context.Context, error) {
+		func(ctx context.Context, cfg *envconf.Config) (context.Context, error) {
 			log.Println("Setup Sqlite Policy RBAC")
 			if p := utils.RunCommand(fmt.Sprintf("kubectl apply -f %s", sqlitePath)); p.Err() != nil {
 				log.Printf("Failed to deploy SQLite Policy: %s: %s", p.Err(), p.Out())
@@ -115,7 +112,7 @@ func TestMain(m *testing.M) {
 		// build Docker Image
 		func(ctx context.Context, cfg *envconf.Config) (context.Context, error) {
 			log.Println("Deploying Docker Image")
-			if p := utils.RunCommand(fmt.Sprintf("docker build -t %s .", dockerImage)); p.Err() != nil {
+			if p := utils.RunCommand(fmt.Sprintf("docker build -t %s .. -f %s", dockerImage, dockerFile)); p.Err() != nil {
 				log.Printf("Failed to docker image: %s: %s", p.Err(), p.Out())
 				return ctx, p.Err()
 			}
