@@ -1,0 +1,23 @@
+apiVersion: flashback.io/v1alpha1
+kind: KFlashbackConfig
+metadata:
+  name: kflashback
+spec:
+  storage:
+    backend: sqlite
+    dsn: /data/kflashback.db
+  server:
+    apiAddress: ":9090"
+    metricsAddress: ":8080"
+    healthAddress: ":8081"
+  controller:
+    leaderElection: true
+    reconcileInterval: "5m"
+  ai:
+    enabled: true
+    provider: ollama
+    endpoint: "http://localhost:11434/v1"     # Ollama's OpenAI-compatible endpoint
+    model: "qwen2.5:3b"                       # Light & fast (1.9GB). Others: qwen3:8b, llama3:8b
+    maxTokens: 1024
+    temperature: "0.3"
+    contextMode: "compact"                     # Use "compact" for local models, "full" for cloud

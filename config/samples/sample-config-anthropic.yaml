@@ -1,0 +1,41 @@
+apiVersion: flashback.io/v1alpha1
+kind: KFlashbackConfig
+metadata:
+  name: kflashback
+spec:
+  storage:
+    backend: sqlite
+    dsn: /data/kflashback.db
+  server:
+    apiAddress: ":9090"
+  controller:
+    leaderElection: true
+  ai:
+    enabled: true
+    provider: anthropic
+    endpoint: "https://api.anthropic.com/v1"   # Anthropic's API (OpenAI-compatible)
+    model: "claude-sonnet-4-20250514"                   # Others: claude-haiku-4-20250514, claude-opus-4-20250514
+    maxTokens: 4096
+    temperature: "0.3"
+    contextMode: "full"                         # Claude handles 200K context easily
+    credentialsSecret:
+      name: kflashback-ai-key
+      namespace: kflashback-system
+      key: api-key
+---
+# Create the Secret first:
+#   kubectl create secret generic kflashback-ai-key \
+#     --namespace=kflashback-system \
+#     --from-literal=api-key='sk-ant-your-anthropic-api-key'
+#
+# Or use the environment variable instead:
+#   KFLASHBACK_AI_API_KEY=sk-ant-your-anthropic-api-key
+#
+# NOTE: Anthropic's native API uses a different format (X-API-Key header, not Bearer).
+# To use Anthropic directly, you need an OpenAI-compatible proxy like LiteLLM:
+#   pip install litellm
+#   litellm --model claude-sonnet-4-20250514 --port 4000
+#   Then set endpoint to: http://localhost:4000/v1
+#
+# Alternatively, if using Amazon Bedrock or Google Vertex AI to access Claude,
+# use the respective OpenAI-compatible gateway endpoint.

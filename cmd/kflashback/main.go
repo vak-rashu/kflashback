@@ -21,6 +21,7 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	flashbackv1alpha1 "github.com/kflashback/kflashback/api/v1alpha1"
+	"github.com/kflashback/kflashback/internal/ai"
 	"github.com/kflashback/kflashback/internal/config"
 	"github.com/kflashback/kflashback/internal/controller"
 	"github.com/kflashback/kflashback/internal/server"
@@ -48,6 +49,11 @@ func main() {
 		probeAddr            string
 		uiDir                string
 		enableLeaderElection bool
+		aiEnabled            bool
+		aiEndpoint           string
+		aiModel              string
+		aiAPIKey             string
+		aiContextMode        string
 	)
 
 	flag.StringVar(&configName, "config-name", "kflashback", "Name of the KFlashbackConfig CR to read (set to empty to skip).")
@@ -58,6 +64,11 @@ func main() {
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the health probe endpoint binds to.")
 	flag.StringVar(&uiDir, "ui-dir", "/ui", "Path to the UI static files directory.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false, "Enable leader election for controller manager.")
+	flag.BoolVar(&aiEnabled, "ai-enabled", false, "Enable AI-powered features.")
+	flag.StringVar(&aiEndpoint, "ai-endpoint", "", "AI provider API endpoint (e.g. http://localhost:11434/v1 for Ollama).")
+	flag.StringVar(&aiModel, "ai-model", "qwen3:8b", "AI model name.")
+	flag.StringVar(&aiAPIKey, "ai-api-key", "", "AI provider API key (use env KFLASHBACK_AI_API_KEY for secrets).")
+	flag.StringVar(&aiContextMode, "ai-context-mode", "compact", "AI context mode: 'compact' (fast, local models) or 'full' (detailed, cloud models).")
 
 	opts := zap.Options{Development: true}
 	opts.BindFlags(flag.CommandLine)
@@ -75,6 +86,11 @@ func main() {
 		HealthAddress:  probeAddr,
 		LeaderElection: enableLeaderElection,
 		UIDir:          uiDir,
+		AIEnabled:      aiEnabled,
+		AIEndpoint:     aiEndpoint,
+		AIModel:        aiModel,
+		AIAPIKey:       aiAPIKey,
+		AIContextMode:  aiContextMode,
 	}
 
 	// Attempt to read KFlashbackConfig CR from the cluster
@@ -164,6 +180,26 @@ func main() {
 
 	// Start API server
 	apiServer := server.New(store, cfg.UIDir, cfg.APIAddress)
+
+	// Configure AI provider if enabled
+	if cfg.AIEnabled && cfg.AIEndpoint != "" {
+		aiProvider, err := ai.NewProvider(ai.Config{
+			Provider:    cfg.AIProvider,
+			Endpoint:    cfg.AIEndpoint,
+			APIKey:      cfg.AIAPIKey,
+			Model:       cfg.AIModel,
+			MaxTokens:   cfg.AIMaxTokens,
+			Temperature: cfg.AITemperature,
+		})
+		if err != nil {
+			setupLog.Error(err, "failed to create AI provider, AI features disabled")
+		} else {
+			// Wrap with guardrails for safety
+			guarded := ai.NewGuardedProvider(aiProvider, ai.DefaultGuardrails())
+			apiServer.SetAIProvider(guarded, cfg.AIContextMode)
+			setupLog.Info("AI features enabled with guardrails", "provider", cfg.AIProvider, "model", cfg.AIModel, "endpoint", cfg.AIEndpoint)
+		}
+	}
 
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()

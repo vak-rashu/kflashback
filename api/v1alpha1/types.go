@@ -227,6 +227,58 @@ type KFlashbackConfigSpec struct {
 	// Controller configures controller behaviour.
 	// +optional
 	Controller KFlashbackControllerSpec `json:"controller,omitempty"`
+
+	// AI configures AI-powered features (change summaries, anomaly detection, natural language queries).
+	// +optional
+	AI *KFlashbackAISpec `json:"ai,omitempty"`
+}
+
+// KFlashbackAISpec configures the AI/LLM provider.
+type KFlashbackAISpec struct {
+	// Enabled activates AI features. Requires a valid provider configuration.
+	// +optional
+	// +kubebuilder:default=false
+	Enabled bool `json:"enabled,omitempty"`
+
+	// Provider is the AI provider type (e.g. "openai", "ollama").
+	// All providers use the OpenAI-compatible chat completions API.
+	// +optional
+	// +kubebuilder:default="openai"
+	Provider string `json:"provider,omitempty"`
+
+	// Endpoint is the API base URL.
+	// OpenAI: https://api.openai.com/v1
+	// Ollama: http://localhost:11434/v1
+	// +optional
+	Endpoint string `json:"endpoint,omitempty"`
+
+	// Model is the model name to use (e.g. "gpt-4o-mini", "llama3", "claude-sonnet-4-20250514").
+	// +optional
+	// +kubebuilder:default="gpt-4o-mini"
+	Model string `json:"model,omitempty"`
+
+	// CredentialsSecret references a Secret containing the API key.
+	// The key in the Secret should be "api-key".
+	// +optional
+	CredentialsSecret *SecretKeyReference `json:"credentialsSecret,omitempty"`
+
+	// MaxTokens is the maximum number of tokens the AI can generate per request.
+	// +optional
+	// +kubebuilder:default=1024
+	MaxTokens int `json:"maxTokens,omitempty"`
+
+	// Temperature controls the randomness of AI responses (0.0 = deterministic, 1.0 = creative).
+	// +optional
+	// +kubebuilder:default="0.3"
+	Temperature string `json:"temperature,omitempty"`
+
+	// ContextMode controls how much cluster data is sent to the AI.
+	// "compact" sends a short text summary (fast, works with small local models).
+	// "full" sends detailed JSON data (slower, better answers with large cloud models).
+	// +optional
+	// +kubebuilder:default="compact"
+	// +kubebuilder:validation:Enum=compact;full
+	ContextMode string `json:"contextMode,omitempty"`
 }
 
 // KFlashbackStorageSpec configures the storage backend.

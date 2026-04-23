@@ -5,20 +5,22 @@
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![Go Report Card](https://goreportcard.com/badge/github.com/kflashback/kflashback)](https://goreportcard.com/report/github.com/kflashback/kflashback)
 
-kflashback records the complete change history of your Kubernetes resources — deployments, services, statefulsets, daemonsets, pods, jobs, cronjobs, and more — so you can see exactly what changed, when, and compare any two points in time.
+kflashback records the complete change history of your Kubernetes resources - deployments, services, statefulsets, daemonsets, pods, jobs, cronjobs, and more - so you can see exactly what changed, when, and compare any two points in time.
 
 ## Features
 
-- **Declarative tracking** — Define a `FlashbackPolicy` CRD to specify which resources to track, retention settings, and field filters.
-- **CRD-based configuration** — Configure the controller via a `KFlashbackConfig` custom resource. No need to edit deployment manifests.
-- **Efficient delta storage** — Stores full snapshots on first capture, then only JSON merge patches for subsequent changes. Periodic full snapshots cap reconstruction cost.
-- **Built-in compression** — Gzip compression for snapshots minimizes storage footprint.
-- **Point-in-time reconstruction** — Reconstruct the exact state of any resource at any revision.
-- **Visual diff** — Side-by-side, unified, and patch views to compare any two revisions.
-- **Beautiful dashboard** — Modern React UI with timeline view, resource browser, infinite scroll, and JSON explorer.
-- **Pluggable storage** — Ships with embedded SQLite (CGo-free). Add new backends by implementing the `storage.Store` interface.
-- **Kubernetes-native** — Operator pattern using controller-runtime; no external dependencies required.
-- **CNCF-aligned** — Apache 2.0 license, security policy, contribution guidelines, DCO.
+- **Declarative tracking** - Define a `FlashbackPolicy` CRD to specify which resources to track, retention settings, and field filters.
+- **CRD-based configuration** - Configure the controller via a `KFlashbackConfig` custom resource. No need to edit deployment manifests.
+- **Efficient delta storage** - Stores full snapshots on first capture, then only JSON merge patches for subsequent changes. Periodic full snapshots cap reconstruction cost.
+- **Built-in compression** - Gzip compression for snapshots minimizes storage footprint.
+- **Point-in-time reconstruction** - Reconstruct the exact state of any resource at any revision.
+- **Visual diff** - Side-by-side, unified, and patch views to compare any two revisions.
+- **Beautiful dashboard** - Modern React UI with timeline view, resource browser, infinite scroll, and JSON explorer.
+- **Pluggable storage** - Ships with embedded SQLite (CGo-free). Add new backends by implementing the `storage.Store` interface.
+- **Kubernetes-native** - Operator pattern using controller-runtime; no external dependencies required.
+- **AI-powered insights** - Natural language queries, change summarization, and anomaly detection powered by any OpenAI-compatible LLM (OpenAI, Ollama, Anthropic via proxy).
+- **AI guardrails** - Built-in secret redaction, prompt injection detection, rate limiting, and topic validation. Sensitive data never reaches the AI provider.
+- **CNCF-aligned** - Apache 2.0 license, security policy, contribution guidelines, DCO.
 
 ## Architecture
 
@@ -87,8 +89,8 @@ kubectl apply -f config/crd/
 ```
 
 This installs both CRDs:
-- `FlashbackPolicy` — defines which resources to track
-- `KFlashbackConfig` — configures the kflashback controller itself
+- `FlashbackPolicy` - defines which resources to track
+- `KFlashbackConfig` - configures the kflashback controller itself
 
 ### 2. Install RBAC
 
@@ -100,7 +102,7 @@ kubectl apply -f config/rbac/
 
 Create a `KFlashbackConfig` resource to configure the controller.
 
-**Option A — SQLite (default, no external database needed):**
+**Option A - SQLite (default, no external database needed):**
 
 ```yaml
 apiVersion: flashback.io/v1alpha1
@@ -124,7 +126,7 @@ spec:
 kubectl apply -f config/samples/sample-config.yaml
 ```
 
-**Option B — PostgreSQL:**
+**Option B - PostgreSQL:**
 
 First, create a Secret with your database connection string:
 
@@ -169,7 +171,7 @@ kubectl apply -f config/samples/sample-config-postgres.yaml
 
 ### 4. Build and load the container image
 
-No pre-built image is published yet — build it locally:
+No pre-built image is published yet - build it locally:
 
 ```bash
 make docker-build
@@ -283,9 +285,9 @@ make run
 ```
 
 The `make run` command starts kflashback with:
-- `--config-name=""` — skips KFlashbackConfig CR lookup
-- `--storage-backend=sqlite --storage-dsn=./kflashback.db` — local SQLite file
-- `--ui-dir=./ui/dist` — serves the built UI
+- `--config-name=""` - skips KFlashbackConfig CR lookup
+- `--storage-backend=sqlite --storage-dsn=./kflashback.db` - local SQLite file
+- `--ui-dir=./ui/dist` - serves the built UI
 
 Open [http://localhost:9090](http://localhost:9090).
 
@@ -333,7 +335,7 @@ The `KFlashbackConfig` CR is a **cluster-scoped singleton** that configures the 
 |---|---|---|---|
 | `spec.storage.backend` | string | `sqlite` | Storage backend (`sqlite`, `postgres`) |
 | `spec.storage.dsn` | string | `/data/kflashback.db` | DSN or file path (avoid credentials here) |
-| `spec.storage.credentialsSecret.name` | string | — | Name of Secret containing the DSN |
+| `spec.storage.credentialsSecret.name` | string | - | Name of Secret containing the DSN |
 | `spec.storage.credentialsSecret.namespace` | string | `kflashback-system` | Namespace of the Secret |
 | `spec.storage.credentialsSecret.key` | string | `dsn` | Key in Secret holding the connection string |
 | `spec.server.apiAddress` | string | `:9090` | API server bind address |
@@ -341,6 +343,16 @@ The `KFlashbackConfig` CR is a **cluster-scoped singleton** that configures the 
 | `spec.server.healthAddress` | string | `:8081` | Health probe address |
 | `spec.controller.leaderElection` | bool | `false` | Enable leader election |
 | `spec.controller.reconcileInterval` | string | `5m` | Retention cleanup interval |
+| `spec.ai.enabled` | bool | `false` | Enable AI-powered features |
+| `spec.ai.provider` | string | `openai` | Provider type (`openai`, `ollama`, `anthropic`) |
+| `spec.ai.endpoint` | string | - | API base URL (see provider setup below) |
+| `spec.ai.model` | string | `gpt-4o-mini` | Model name |
+| `spec.ai.maxTokens` | int | `1024` | Max tokens per AI response |
+| `spec.ai.temperature` | string | `0.3` | Response randomness (0.0–1.0) |
+| `spec.ai.contextMode` | string | `compact` | `compact` (fast, local models) or `full` (detailed, cloud models) |
+| `spec.ai.credentialsSecret.name` | string | - | Secret containing the API key |
+| `spec.ai.credentialsSecret.namespace` | string | `kflashback-system` | Namespace of the Secret |
+| `spec.ai.credentialsSecret.key` | string | `api-key` | Key in Secret holding the API key |
 
 ### FlashbackPolicy CRD
 
@@ -380,6 +392,99 @@ These are used as defaults when no `KFlashbackConfig` CR is found, or when `--co
 | `--health-probe-bind-address` | `:8081` | Health probe bind address |
 | `--ui-dir` | `/ui` | UI static files directory |
 | `--leader-elect` | `false` | Enable leader election |
+| `--ai-enabled` | `false` | Enable AI features |
+| `--ai-endpoint` | - | AI provider URL (e.g. `http://localhost:11434/v1`) |
+| `--ai-model` | `qwen3:8b` | AI model name |
+| `--ai-api-key` | - | API key (prefer `KFLASHBACK_AI_API_KEY` env var) |
+| `--ai-context-mode` | `compact` | `compact` or `full` |
+
+---
+
+## AI Features
+
+kflashback includes optional AI-powered features for understanding cluster changes. AI is **off by default** - enable it by configuring a provider.
+
+### What AI can do
+
+| Feature | API Endpoint | Description |
+|---|---|---|
+| **Natural language queries** | `POST /api/v1/ai/query` | Ask questions like "What deployments are tracked?" |
+| **Change summarization** | `GET /api/v1/ai/summarize/{uid}/revisions/{rev}` | Human-readable summary of a revision |
+| **Diff summarization** | `GET /api/v1/ai/summarize/{uid}/diff?from=1&to=5` | Summary comparing two revisions |
+| **Anomaly detection** | `GET /api/v1/ai/anomalies?hours=24` | Flag unusual changes in recent history |
+
+### Provider setup
+
+All providers use the **OpenAI-compatible chat completions API**. One implementation covers all providers.
+
+#### Ollama (local, free, no API key)
+
+```bash
+# Install and start Ollama
+brew install ollama && ollama serve
+
+# Pull a model (qwen2.5:3b is fast and lightweight at 1.9GB)
+ollama pull qwen2.5:3b
+
+# Run kflashback with AI
+make run AI_FLAGS="--ai-enabled --ai-endpoint=http://localhost:11434/v1 --ai-model=qwen2.5:3b --ai-context-mode=compact"
+```
+
+Or use the sample config: `config/samples/sample-config-ollama.yaml`
+
+#### OpenAI (GPT-4o-mini, GPT-4o)
+
+```bash
+# Create a Secret with your API key
+kubectl create secret generic kflashback-ai-key \
+  --namespace=kflashback-system \
+  --from-literal=api-key='sk-your-openai-key'
+```
+
+Or set the env var: `export KFLASHBACK_AI_API_KEY=sk-your-openai-key`
+
+Sample config: `config/samples/sample-config-openai.yaml`
+
+#### Anthropic (Claude)
+
+Anthropic's native API uses a different auth format. Use an **OpenAI-compatible proxy** like LiteLLM:
+
+```bash
+pip install litellm
+export ANTHROPIC_API_KEY=sk-ant-your-key
+litellm --model claude-sonnet-4-20250514 --port 4000
+```
+
+Then point kflashback at `http://localhost:4000/v1`.
+
+Sample config: `config/samples/sample-config-anthropic.yaml`
+
+### Context modes
+
+| Mode | Best for | What's sent to the AI | Speed |
+|---|---|---|---|
+| `compact` | Local models (Ollama, small GPUs) | Short text summary (~200 tokens) | 10–25s |
+| `full` | Cloud models (GPT-4o, Claude) | Detailed JSON with resources + revisions | Depends on model |
+
+### Credential priority
+
+AI API key is resolved in this order (highest to lowest):
+
+1. `KFLASHBACK_AI_API_KEY` environment variable
+2. Kubernetes Secret via `spec.ai.credentialsSecret`
+3. CLI `--ai-api-key` flag
+
+### Safety guardrails
+
+All AI features include built-in guardrails:
+
+- **Secret redaction** - API keys, tokens, passwords, JWTs, and connection strings are stripped before sending to the AI
+- **K8s resource sanitization** - Secret `data`, sensitive env vars, and credential annotations are redacted
+- **Prompt injection detection** - Blocks attempts like "ignore your instructions" or "reveal your prompt"
+- **Topic validation** - Only Kubernetes-related questions are accepted
+- **Rate limiting** - 30 requests/minute per instance
+- **Output filtering** - Responses are scanned for leaked sensitive data
+- **System prompt hardening** - AI is instructed to never output credentials or generate destructive commands
 
 ---
 
@@ -401,6 +506,20 @@ curl http://localhost:9090/api/v1/resources/{uid}/reconstruct/5
 
 # Diff two revisions
 curl http://localhost:9090/api/v1/resources/{uid}/diff?from=3&to=7
+
+# AI: Ask a question
+curl -X POST http://localhost:9090/api/v1/ai/query \
+  -H "Content-Type: application/json" \
+  -d '{"question":"What deployments are tracked in my cluster?"}'
+
+# AI: Summarize a revision
+curl http://localhost:9090/api/v1/ai/summarize/{uid}/revisions/5
+
+# AI: Summarize diff between revisions
+curl http://localhost:9090/api/v1/ai/summarize/{uid}/diff?from=1&to=5
+
+# AI: Detect anomalies in the last 24 hours
+curl http://localhost:9090/api/v1/ai/anomalies?hours=24
 ```
 
 ## Project Structure
@@ -410,11 +529,12 @@ kflashback/
 ├── api/v1alpha1/            # CRD types (FlashbackPolicy, KFlashbackConfig)
 ├── cmd/kflashback/          # Main entrypoint
 ├── internal/
+│   ├── ai/                  # AI provider, summarizer, anomaly detector, query engine, guardrails
 │   ├── config/              # KFlashbackConfig CR loader
 │   ├── controller/          # Policy reconciler + resource watchers
 │   ├── diff/                # JSON merge patch engine
-│   ├── server/              # REST API server
-│   └── storage/             # Storage interface, factory + SQLite backend
+│   ├── server/              # REST API + AI API handlers
+│   └── storage/             # Storage interface, factory + SQLite/PostgreSQL backends
 ├── ui/                      # React + Vite + TailwindCSS dashboard
 ├── config/
 │   ├── crd/                 # CRD manifests (FlashbackPolicy, KFlashbackConfig)
@@ -428,6 +548,9 @@ kflashback/
 ## Roadmap
 
 - [x] PostgreSQL storage backend
+- [x] AI-powered change summaries, anomaly detection, and natural language queries
+- [x] AI guardrails (secret redaction, prompt injection detection, rate limiting)
+- [x] Multi-provider AI support (OpenAI, Ollama, Anthropic via LiteLLM)
 - [ ] Helm chart
 - [ ] Prometheus metrics
 - [ ] Webhook notifications on changes

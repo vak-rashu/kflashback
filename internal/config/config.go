@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strconv"
 
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -32,6 +33,16 @@ type Resolved struct {
 	HealthAddress  string
 	LeaderElection bool
 	UIDir          string
+
+	// AI configuration
+	AIEnabled     bool
+	AIProvider    string
+	AIEndpoint    string
+	AIModel       string
+	AIAPIKey      string
+	AIMaxTokens   int
+	AITemperature float64
+	AIContextMode string // "compact" or "full"
 }
 
 // Defaults returns a Resolved with sensible defaults matching CLI flag defaults.
@@ -101,6 +112,46 @@ func LoadFromCR(ctx context.Context, c client.Reader, configName string, base Re
 	}
 	if cfg.Spec.Controller.LeaderElection {
 		base.LeaderElection = true
+	}
+
+	// AI configuration
+	if cfg.Spec.AI != nil && cfg.Spec.AI.Enabled {
+		base.AIEnabled = true
+		if cfg.Spec.AI.Provider != "" {
+			base.AIProvider = cfg.Spec.AI.Provider
+		}
+		if cfg.Spec.AI.Endpoint != "" {
+			base.AIEndpoint = cfg.Spec.AI.Endpoint
+		}
+		if cfg.Spec.AI.Model != "" {
+			base.AIModel = cfg.Spec.AI.Model
+		}
+		if cfg.Spec.AI.MaxTokens > 0 {
+			base.AIMaxTokens = cfg.Spec.AI.MaxTokens
+		}
+		if cfg.Spec.AI.Temperature != "" {
+			if t, err := strconv.ParseFloat(cfg.Spec.AI.Temperature, 64); err == nil {
+				base.AITemperature = t
+			}
+		}
+		if cfg.Spec.AI.ContextMode != "" {
+			base.AIContextMode = cfg.Spec.AI.ContextMode
+		}
+		// Resolve AI API key from Secret
+		if cfg.Spec.AI.CredentialsSecret != nil {
+			apiKey, err := resolveSecretDSN(ctx, c, cfg.Spec.AI.CredentialsSecret)
+			if err != nil {
+				return base, true, fmt.Errorf("resolving AI credentialsSecret: %w", err)
+			}
+			if apiKey != "" {
+				base.AIAPIKey = apiKey
+			}
+		}
+	}
+
+	// Environment variable overrides for AI
+	if envKey := os.Getenv("KFLASHBACK_AI_API_KEY"); envKey != "" {
+		base.AIAPIKey = envKey
 	}
 
 	return base, true, nil
