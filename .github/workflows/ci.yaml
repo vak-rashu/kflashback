@@ -144,3 +144,15 @@ jobs:
             config/samples/sample-config.yaml \
             config/samples/sample-config-postgres.yaml \
             config/samples/sample-policy.yaml
+
+  # ──────────────────────────────────────────────
+  # E2E Tests: Run only on Push to main branch
+  # ──────────────────────────────────────────────
+
+  e2e:
+    name: Run Controller E2E Test
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref_name == 'main'
+    needs: [go, docker, manifests, integration, ui]
+
+    

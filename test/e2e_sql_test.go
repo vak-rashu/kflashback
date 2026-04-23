@@ -80,17 +80,6 @@ func TestMain(m *testing.M) {
 
 		backendDB,
 
-		// // deploying the sqlite policy
-		// func(ctx context.Context, cfg *envconf.Config) (context.Context, error) {
-		// 	log.Println("Setup Sqlite Policy RBAC")
-		// 	if p := utils.RunCommand(fmt.Sprintf("kubectl apply -f %s", sqlitePath)); p.Err() != nil {
-		// 		log.Printf("Failed to deploy SQLite Policy: %s: %s", p.Err(), p.Out())
-		// 		return ctx, p.Err()
-		// 	}
-
-		// 	return ctx, nil
-		// },
-
 		// build Docker Image
 		func(ctx context.Context, cfg *envconf.Config) (context.Context, error) {
 			log.Println("Deploying Docker Image")
