@@ -27,7 +27,7 @@ This project follows the [CNCF Code of Conduct](https://github.com/cncf/foundati
    make lint
    make test
    ```
-5. **Keep PRs focused** — one feature or fix per PR.
+5. **Keep PRs focused** - one feature or fix per PR.
 6. **Update documentation** if your change affects user-facing behavior.
 
 ### Developer Certificate of Origin (DCO)

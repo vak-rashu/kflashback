@@ -5,6 +5,10 @@ import type {
   StorageStats,
   KindStats,
   DiffResult,
+  AISummary,
+  AIDiffSummary,
+  AnomalyReport,
+  QueryResult,
 } from '../types';
 
 const API_BASE = '/api/v1';
@@ -90,4 +94,36 @@ export async function diffRevisions(
     `/resources/${uid}/diff?from=${from}&to=${to}`
   );
   return res.data;
+}
+
+// --- AI API ---
+
+export async function getAISummary(uid: string, revision: number): Promise<AISummary> {
+  const res = await fetchApi<AISummary>(`/ai/summarize/${uid}/revisions/${revision}`);
+  return res.data;
+}
+
+export async function getAIDiffSummary(uid: string, from: number, to: number): Promise<AIDiffSummary> {
+  const res = await fetchApi<AIDiffSummary>(`/ai/summarize/${uid}/diff?from=${from}&to=${to}`);
+  return res.data;
+}
+
+export async function getAnomalies(hours?: number): Promise<AnomalyReport> {
+  const query = hours ? `?hours=${hours}` : '';
+  const res = await fetchApi<AnomalyReport>(`/ai/anomalies${query}`);
+  return res.data;
+}
+
+export async function askAI(question: string): Promise<QueryResult> {
+  const res = await fetch(`${API_BASE}/ai/query`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ question }),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error(body.error || `HTTP ${res.status}`);
+  }
+  const json = await res.json();
+  return json.data;
 }

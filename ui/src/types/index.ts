@@ -53,6 +53,35 @@ export interface DiffResult {
   toSnapshot: Record<string, unknown>;
 }
 
+export interface AISummary {
+  revision: number;
+  summary: string;
+}
+
+export interface AIDiffSummary {
+  fromRevision: number;
+  toRevision: number;
+  summary: string;
+}
+
+export interface Anomaly {
+  severity: 'high' | 'medium' | 'low';
+  title: string;
+  description: string;
+  resource: string;
+  revision: number;
+}
+
+export interface AnomalyReport {
+  anomalies: Anomaly[];
+  summary: string;
+}
+
+export interface QueryResult {
+  answer: string;
+  sources?: { kind: string; name: string; namespace: string; revision?: number }[];
+}
+
 export interface ApiResponse<T> {
   data: T;
   error?: string;

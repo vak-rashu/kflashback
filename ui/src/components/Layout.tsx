@@ -1,9 +1,10 @@
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Box, History } from 'lucide-react';
+import { LayoutDashboard, Box, History, Sparkles } from 'lucide-react';
 
 const navItems = [
   { path: '/', label: 'Dashboard', icon: LayoutDashboard },
   { path: '/resources', label: 'Resources', icon: Box },
+  { path: '/ai', label: 'AI Insights', icon: Sparkles },
 ];
 
 export default function Layout({ children }: { children: React.ReactNode }) {

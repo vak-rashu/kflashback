@@ -5,7 +5,7 @@ metadata:
 spec:
   storage:
     backend: postgres
-    # Do NOT put credentials in dsn — use credentialsSecret instead.
+    # Do NOT put credentials in dsn - use credentialsSecret instead.
     # dsn is only used as a fallback if credentialsSecret is not set.
     dsn: "postgres://localhost:5432/kflashback?sslmode=disable"
     credentialsSecret:

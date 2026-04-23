@@ -14,6 +14,7 @@ import (
 	"github.com/gorilla/mux"
 	ctrl "sigs.k8s.io/controller-runtime"
 
+	"github.com/kflashback/kflashback/internal/ai"
 	"github.com/kflashback/kflashback/internal/storage"
 )
 
@@ -21,9 +22,11 @@ var serverLog = ctrl.Log.WithName("api-server")
 
 // Server serves the REST API and embedded UI for kflashback.
 type Server struct {
-	store  storage.Store
-	router *mux.Router
-	server *http.Server
+	store         storage.Store
+	router        *mux.Router
+	server        *http.Server
+	ai            ai.Provider
+	aiContextMode string // "compact" or "full"
 }
 
 // New creates a new API server.
@@ -39,11 +42,21 @@ func New(store storage.Store, uiDir string, addr string) *Server {
 		Addr:         addr,
 		Handler:      s.router,
 		ReadTimeout:  15 * time.Second,
-		WriteTimeout: 30 * time.Second,
+		WriteTimeout: 5 * time.Minute,
 		IdleTimeout:  60 * time.Second,
 	}
 
 	return s
+}
+
+// SetAIProvider configures the AI provider for AI-powered features.
+func (s *Server) SetAIProvider(provider ai.Provider, contextMode string) {
+	s.ai = provider
+	s.aiContextMode = contextMode
+	if s.aiContextMode == "" {
+		s.aiContextMode = "compact"
+	}
+	serverLog.Info("AI features enabled", "contextMode", s.aiContextMode)
 }
 
 func (s *Server) registerRoutes(uiDir string) {
@@ -60,6 +73,9 @@ func (s *Server) registerRoutes(uiDir string) {
 	api.HandleFunc("/resources/{uid}/revisions/{revision}", s.handleGetRevision).Methods("GET", "OPTIONS")
 	api.HandleFunc("/resources/{uid}/reconstruct/{revision}", s.handleReconstructAtRevision).Methods("GET", "OPTIONS")
 	api.HandleFunc("/resources/{uid}/diff", s.handleDiffRevisions).Methods("GET", "OPTIONS")
+
+	// AI-powered routes (guarded — return 503 if AI not configured)
+	s.registerAIRoutes(api)
 
 	// Health endpoints
 	s.router.HandleFunc("/healthz", s.handleHealthz).Methods("GET")

@@ -59,7 +59,7 @@ spec:
                       description: >-
                         Data source name or file path for the storage backend.
                         For sqlite this is a file path, for postgres a connection string.
-                        Avoid putting credentials directly here — use credentialsSecret instead.
+                        Avoid putting credentials directly here - use credentialsSecret instead.
                       type: string
                       default: /data/kflashback.db
                     credentialsSecret:

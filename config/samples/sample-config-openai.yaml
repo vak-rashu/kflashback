@@ -1,0 +1,32 @@
+apiVersion: flashback.io/v1alpha1
+kind: KFlashbackConfig
+metadata:
+  name: kflashback
+spec:
+  storage:
+    backend: sqlite
+    dsn: /data/kflashback.db
+  server:
+    apiAddress: ":9090"
+  controller:
+    leaderElection: true
+  ai:
+    enabled: true
+    provider: openai
+    endpoint: "https://api.openai.com/v1"
+    model: "gpt-4o-mini"                       # Fast & cheap. Others: gpt-4o, gpt-4-turbo
+    maxTokens: 2048
+    temperature: "0.3"
+    contextMode: "full"                         # Cloud models handle large context well
+    credentialsSecret:
+      name: kflashback-ai-key
+      namespace: kflashback-system
+      key: api-key
+---
+# Create the Secret first:
+#   kubectl create secret generic kflashback-ai-key \
+#     --namespace=kflashback-system \
+#     --from-literal=api-key='sk-your-openai-api-key'
+#
+# Or use the environment variable instead:
+#   KFLASHBACK_AI_API_KEY=sk-your-openai-api-key
