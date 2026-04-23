@@ -30,21 +30,25 @@ var (
 	rbacPath           = "../config/rbac/"
 	controllerPath     = "../config/manager/"
 	trackingPolicyPath = "../config/samples/sample-policy.yaml"
+	sqlitePath = "../config/sample/sample-config.yaml"
+	postgresPath = "../config/samples/sample-config-postgres.yaml"
 
 	// namespace name
 	namespace = "kflashback-system"
 )
 
 // get the db backend
-func getFunc() env.Func {
+func getFunc() string {
 	dbtype := os.Getenv("STORAGE_BACKEND")
 	log.Printf("Using storage backend: %s", dbtype)
 
-	if dbtype == "sqlite" {
-		return setupSQLite
-	} else {
-		return setupPostgres
-	}
+	return dbtype
+
+	// if dbtype == "sqlite" {
+	// 	return setupSQLite
+	// } else {
+	// 	return setupPostgres
+	// }
 }
 
 func TestMain(m *testing.M) {
@@ -52,6 +56,7 @@ func TestMain(m *testing.M) {
 	testenv = env.New()
 	kindClusterName := envconf.RandomName("kind-cluster", 10)
 	kindCluster := kind.NewCluster(kindClusterName)
+	dbtype := getFunc()
 
 	backendDB := getFunc()
 
@@ -80,7 +85,30 @@ func TestMain(m *testing.M) {
 			return ctx, nil
 		},
 
-		backendDB,
+		if dbtype == "sqlite"{
+			func setupSQLite(ctx context.Context, cfg *envconf.Config) (context.Context, error) {
+				log.Println("Setup Sqlite Policy RBAC")
+				if p := utils.RunCommand(fmt.Sprintf("kubectl apply -f %s", sqlitePath)); p.Err() != nil {
+					log.Printf("Failed to deploy SQLite Policy: %s: %s", p.Err(), p.Out())
+					return ctx, p.Err()
+				}
+
+				return ctx, nil
+			}
+		} ,
+
+		if dbtype == "postregsql"{
+			func setupPostgres(ctx context.Context, cfg *envconf.Config) (context.Context, error) {
+				log.Println("Setup Sqlite Policy RBAC")
+				if p := utils.RunCommand(fmt.Sprintf("kubectl create secret generic kflashback-db-credentials --namespace=kflashback-system --from-literal=dsn='postgres://postgres :postgres@localhost:5432/kflashback?sslmode=require' kubectl apply -f %s",
+				postgresPath)); p.Err() != nil {
+					log.Printf("Failed to deploy Postgres Policy: %s: %s", p.Err(), p.Out())
+					return ctx, p.Err()
+				}
+
+				return ctx, nil
+			}
+		},
 
 		// build Docker Image
 		func(ctx context.Context, cfg *envconf.Config) (context.Context, error) {
