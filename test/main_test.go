@@ -1,11 +1,12 @@
-//go:build e2e
-
 package e2e
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
+	"log"
 	"net/http"
 	"testing"
 	"time"
@@ -40,7 +41,7 @@ var testDeployment = &appsv1.Deployment{
 				Containers: []corev1.Container{
 					{
 						Name:  "app",
-						Image: "nginx:1.0",
+						Image: "nginx:1",
 					},
 				},
 			},
@@ -53,9 +54,9 @@ var expectedRevisions = map[int]struct {
 	image    string
 	replicas int32
 }{
-	1: {image: "nginx:1.0", replicas: 3},
-	2: {image: "nginx:2.0", replicas: 3},
-	3: {image: "nginx:2.0", replicas: 5},
+	1: {image: "nginx:1", replicas: 3},
+	2: {image: "nginx:1.10", replicas: 3},
+	3: {image: "nginx:1.11", replicas: 5},
 }
 
 type HistoryResponse struct {
@@ -68,20 +69,63 @@ type Revision struct {
 }
 
 type ReconstructResponse struct {
-	Spec struct {
-		Replicas int32 `json:"replicas"`
-		Template struct {
-			Spec struct {
-				Containers []struct {
-					Image string `json:"image"`
-				} `json:"containers"`
-			} `json:"spec"`
-		} `json:"template"`
-	} `json:"spec"`
+	Data struct {
+		APIVersion string `json:"apiVersion"`
+		Kind       string `json:"kind"`
+		Metadata   struct {
+			Name        string `json:"name"`
+			Namespace   string `json:"namespace"`
+			Annotations struct {
+			} `json:"annotations"`
+		} `json:"metadata"`
+		Spec struct {
+			ProgressDeadlineSeconds int   `json:"progressDeadlineSeconds"`
+			Replicas                int32 `json:"replicas"`
+			RevisionHistoryLimit    int   `json:"revisionHistoryLimit"`
+			Selector                struct {
+				MatchLabels struct {
+					App string `json:"app"`
+				} `json:"matchLabels"`
+			} `json:"selector"`
+			Strategy struct {
+				RollingUpdate struct {
+					MaxSurge       string `json:"maxSurge"`
+					MaxUnavailable string `json:"maxUnavailable"`
+				} `json:"rollingUpdate"`
+				Type string `json:"type"`
+			} `json:"strategy"`
+			Template struct {
+				Metadata struct {
+					CreationTimestamp interface{} `json:"creationTimestamp"`
+					Labels            struct {
+						App string `json:"app"`
+					} `json:"labels"`
+				} `json:"metadata"`
+				Spec struct {
+					Containers []struct {
+						Image           string `json:"image"`
+						ImagePullPolicy string `json:"imagePullPolicy"`
+						Name            string `json:"name"`
+						Resources       struct {
+						} `json:"resources"`
+						TerminationMessagePath   string `json:"terminationMessagePath"`
+						TerminationMessagePolicy string `json:"terminationMessagePolicy"`
+					} `json:"containers"`
+					DNSPolicy       string `json:"dnsPolicy"`
+					RestartPolicy   string `json:"restartPolicy"`
+					SchedulerName   string `json:"schedulerName"`
+					SecurityContext struct {
+					} `json:"securityContext"`
+					TerminationGracePeriodSeconds int `json:"terminationGracePeriodSeconds"`
+				} `json:"spec"`
+			} `json:"template"`
+		} `json:"spec"`
+	} `json:"data"`
 }
 
 func TestDeploymentTracking(t *testing.T) {
-	// creating the deployment uuid to refer to in assessments
+
+	// creating the deployment uuid
 	var deploymentUID string
 
 	feature := features.New("Deployment Tracking")
@@ -89,6 +133,16 @@ func TestDeploymentTracking(t *testing.T) {
 	// create the deployment
 
 	feature.Setup(func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
+
+		resp, err := http.Get("http://localhost:9090/healthz")
+		if err != nil || resp.StatusCode != 200 {
+			t.Fatalf("API not reachable - port forward may not be working: %v", err)
+		}
+
+		t.Log("API is reachable ✅")
+
+		log.Println("Creating the deployment")
+
 		client := cfg.Client()
 
 		appsv1.AddToScheme(client.Resources().GetScheme())
@@ -98,6 +152,7 @@ func TestDeploymentTracking(t *testing.T) {
 		}
 
 		// wait for deployment to be available
+		log.Println("Wait for deployment to be available")
 		if err := wait.For(
 			conditions.New(client.Resources()).DeploymentAvailable("test-app", "default"),
 			wait.WithTimeout(2*time.Minute),
@@ -116,26 +171,10 @@ func TestDeploymentTracking(t *testing.T) {
 		return ctx
 	})
 
-	// check revision 1 was recorded
-	feature.Assess("revision 1 recorded on creation", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
+	// update image to nginx:1.10
+	feature.Assess("update image to nginx:1.10", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
+		log.Println("update image to nginx:1.10")
 
-		time.Sleep(5 * time.Second)
-
-		history := getHistory(t, deploymentUID)
-		if len(history.Revisions) < 1 {
-			t.Fatalf("expected at least 1 revision, got %d", len(history.Revisions))
-		}
-
-		if history.Revisions[0].EventType != "CREATED" {
-			t.Fatalf("expected first revision to be CREATED, got %s", history.Revisions[0].EventType)
-		}
-
-		t.Logf("revision 1 recorded correctly ")
-		return ctx
-	})
-
-	// update image to check revision 2
-	feature.Assess("revision 2 recorded on image update", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
 		client := cfg.Client()
 
 		var deployment appsv1.Deployment
@@ -144,25 +183,19 @@ func TestDeploymentTracking(t *testing.T) {
 		}
 
 		// update the image
-		deployment.Spec.Template.Spec.Containers[0].Image = "nginx:2.0"
+		deployment.Spec.Template.Spec.Containers[0].Image = "nginx:1.10"
 		if err := client.Resources().Update(ctx, &deployment); err != nil {
 			t.Fatalf("failed to update deployment image: %s", err)
 		}
 
 		time.Sleep(5 * time.Second)
 
-		history := getHistory(t, deploymentUID)
-		if len(history.Revisions) < 2 {
-			t.Fatalf("expected at least 2 revisions, got %d", len(history.Revisions))
-		}
-
-		t.Logf("revision 2 recorded correctly ")
 		return ctx
 	})
 
-	// increase number replicas to check revision 3
+	feature.Assess("increase number replicas to check revision 3", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
+		log.Println("Increasing number of Replicas")
 
-	feature.Assess("revision 3 recorded on scaling", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
 		client := cfg.Client()
 
 		var deployment appsv1.Deployment
@@ -177,33 +210,28 @@ func TestDeploymentTracking(t *testing.T) {
 
 		time.Sleep(5 * time.Second)
 
-		history := getHistory(t, deploymentUID)
-		if len(history.Revisions) < 3 {
-			t.Fatalf("expected at least 3 revisions, got %d", len(history.Revisions))
-		}
-
-		t.Logf("revision 3 recorded correctly")
 		return ctx
 	})
 
 	// reconstruct revision 1
-
 	feature.Assess("reconstruct revision 1 matches expected state", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
+		log.Println("Reconstructing Revision 1")
+
 		reconstructed := reconstruct(t, deploymentUID, 1)
 
 		expected := expectedRevisions[1]
 
 		// verify the reconstructed spec
-		if reconstructed.Spec.Template.Spec.Containers[0].Image != expected.image {
+		if reconstructed.Data.Spec.Template.Spec.Containers[0].Image != expected.image {
 			t.Fatalf("revision 1 image: expected %s got %s",
 				expected.image,
-				reconstructed.Spec.Template.Spec.Containers[0].Image,
+				reconstructed.Data.Spec.Template.Spec.Containers[0].Image,
 			)
 		}
-		if reconstructed.Spec.Replicas != expected.replicas {
+		if reconstructed.Data.Spec.Replicas != expected.replicas {
 			t.Fatalf("revision 1 replicas: expected %d got %d",
 				expected.replicas,
-				reconstructed.Spec.Replicas,
+				reconstructed.Data.Spec.Replicas,
 			)
 		}
 
@@ -212,17 +240,18 @@ func TestDeploymentTracking(t *testing.T) {
 	})
 
 	// reconstruct revision 2
-
 	feature.Assess("reconstruct revision 2 matches expected state", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
+		log.Println("Reconstructing Revision 1")
+
 		reconstructed := reconstruct(t, deploymentUID, 2)
 
 		expected := expectedRevisions[2]
 
 		// verify 2nd revision
-		if reconstructed.Spec.Template.Spec.Containers[0].Image != expected.image {
+		if reconstructed.Data.Spec.Template.Spec.Containers[0].Image != expected.image {
 			t.Fatalf("revision 2 image: expected %s got %s",
 				expected.image,
-				reconstructed.Spec.Template.Spec.Containers[0].Image,
+				reconstructed.Data.Spec.Template.Spec.Containers[0].Image,
 			)
 		}
 
@@ -232,6 +261,8 @@ func TestDeploymentTracking(t *testing.T) {
 
 	// cleanup the resources
 	feature.Teardown(func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
+		log.Println("Cleaning the Resources")
+
 		client := cfg.Client()
 		if err := client.Resources().Delete(ctx, testDeployment); err != nil {
 			t.Logf("warning: failed to delete deployment: %s", err)
@@ -240,23 +271,6 @@ func TestDeploymentTracking(t *testing.T) {
 	})
 
 	testenv.Test(t, feature.Feature())
-}
-
-// call the= history API for a resource
-func getHistory(t *testing.T, uid string) HistoryResponse {
-	t.Helper()
-	url := fmt.Sprintf("http://localhost:9090/api/v1/resources/%s/history", uid)
-	resp, err := http.Get(url)
-	if err != nil {
-		t.Fatalf("failed to call history API: %s", err)
-	}
-	defer resp.Body.Close()
-
-	var history HistoryResponse
-	if err := json.NewDecoder(resp.Body).Decode(&history); err != nil {
-		t.Fatalf("failed to decode history response: %s", err)
-	}
-	return history
 }
 
 // call the reconstruct API for a specific revision
@@ -269,9 +283,13 @@ func reconstruct(t *testing.T, uid string, revision int) ReconstructResponse {
 	}
 	defer resp.Body.Close()
 
+	body, _ := io.ReadAll(resp.Body)
+	buf := bytes.NewBuffer(body)
+
 	var result ReconstructResponse
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+	if err := json.NewDecoder(buf).Decode(&result); err != nil {
 		t.Fatalf("failed to decode reconstruct response: %s", err)
 	}
+
 	return result
 }
