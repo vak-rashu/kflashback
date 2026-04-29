@@ -35,6 +35,7 @@ spec:
   fieldConfig:
     ignoreFields:
       - ".metadata.annotations.deployment\\.kubernetes\\.io/revision"
+      - ".metadata.annotations"
     trackStatus: false
 
   # Track all event types

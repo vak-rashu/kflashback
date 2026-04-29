@@ -59,15 +59,6 @@ var expectedRevisions = map[int]struct {
 	3: {image: "nginx:1.11", replicas: 5},
 }
 
-type HistoryResponse struct {
-	Revisions []Revision `json:"revisions"`
-}
-
-type Revision struct {
-	Revision  int    `json:"revision"`
-	EventType string `json:"eventType"`
-}
-
 type ReconstructResponse struct {
 	Data struct {
 		APIVersion string `json:"apiVersion"`
@@ -131,14 +122,12 @@ func TestDeploymentTracking(t *testing.T) {
 	feature := features.New("Deployment Tracking")
 
 	// create the deployment
-
 	feature.Setup(func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
 
 		resp, err := http.Get("http://localhost:9090/healthz")
 		if err != nil || resp.StatusCode != 200 {
 			t.Fatalf("API not reachable - port forward may not be working: %v", err)
 		}
-
 		t.Log("API is reachable ✅")
 
 		log.Println("Creating the deployment")
@@ -183,17 +172,18 @@ func TestDeploymentTracking(t *testing.T) {
 		}
 
 		// update the image
-		deployment.Spec.Template.Spec.Containers[0].Image = "nginx:1.10"
+		deployment.Spec.Template.Spec.Containers[0].Image = expectedRevisions[2].image
 		if err := client.Resources().Update(ctx, &deployment); err != nil {
 			t.Fatalf("failed to update deployment image: %s", err)
 		}
 
-		time.Sleep(5 * time.Second)
+		time.Sleep(10 * time.Second)
 
 		return ctx
 	})
 
-	feature.Assess("increase number replicas to check revision 3", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
+	// increase number of replicas
+	feature.Assess("increase number of replicas", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
 		log.Println("Increasing number of Replicas")
 
 		client := cfg.Client()
@@ -203,12 +193,13 @@ func TestDeploymentTracking(t *testing.T) {
 			t.Fatalf("failed to get deployment: %s", err)
 		}
 
-		deployment.Spec.Replicas = int32Ptr(5)
+		deployment.Spec.Replicas = int32Ptr(expectedRevisions[3].replicas)
 		if err := client.Resources().Update(ctx, &deployment); err != nil {
 			t.Fatalf("failed to scale deployment: %s", err)
 		}
 
-		time.Sleep(5 * time.Second)
+		time.Sleep(10 * time.Second)
+		log.Printf("number of replicas is %d", &deployment.Spec.Replicas)
 
 		return ctx
 	})
@@ -218,7 +209,6 @@ func TestDeploymentTracking(t *testing.T) {
 		log.Println("Reconstructing Revision 1")
 
 		reconstructed := reconstruct(t, deploymentUID, 1)
-
 		expected := expectedRevisions[1]
 
 		// verify the reconstructed spec
@@ -241,15 +231,14 @@ func TestDeploymentTracking(t *testing.T) {
 
 	// reconstruct revision 2
 	feature.Assess("reconstruct revision 2 matches expected state", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
-		log.Println("Reconstructing Revision 1")
+		log.Println("Reconstructing Revision 2")
 
 		reconstructed := reconstruct(t, deploymentUID, 2)
-
 		expected := expectedRevisions[2]
 
 		// verify 2nd revision
 		if reconstructed.Data.Spec.Template.Spec.Containers[0].Image != expected.image {
-			t.Fatalf("revision 2 image: expected %s got %s",
+			t.Fatalf("revision 1 image: expected %s got %s",
 				expected.image,
 				reconstructed.Data.Spec.Template.Spec.Containers[0].Image,
 			)
@@ -261,6 +250,7 @@ func TestDeploymentTracking(t *testing.T) {
 
 	// cleanup the resources
 	feature.Teardown(func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
+
 		log.Println("Cleaning the Resources")
 
 		client := cfg.Client()
@@ -273,7 +263,7 @@ func TestDeploymentTracking(t *testing.T) {
 	testenv.Test(t, feature.Feature())
 }
 
-// call the reconstruct API for a specific revision
+// call the reconstruct API
 func reconstruct(t *testing.T, uid string, revision int) ReconstructResponse {
 	t.Helper()
 	url := fmt.Sprintf("http://localhost:9090/api/v1/resources/%s/reconstruct/%d", uid, revision)

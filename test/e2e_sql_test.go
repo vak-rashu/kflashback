@@ -33,7 +33,6 @@ var (
 	trackPolicyPath  = "./test_data/test-tracking-policy.yaml"
 	sqliteConfigPath = "../config/samples/sample-config.yaml"
 	dockerFile       = "../Dockerfile"
-	//postgresPath       = "../config/samples/sample-config-postgres.yaml"
 
 	// namespace name value
 	namespace = "kflashback-system"
