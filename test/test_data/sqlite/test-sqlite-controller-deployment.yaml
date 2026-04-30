@@ -1,0 +1,118 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kflashback-system
+  labels:
+    app.kubernetes.io/name: kflashback
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kflashback-controller
+  namespace: kflashback-system
+  labels:
+    app.kubernetes.io/name: kflashback
+    app.kubernetes.io/component: controller
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: kflashback
+      app.kubernetes.io/component: controller
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: kflashback
+        app.kubernetes.io/component: controller
+    spec:
+      serviceAccountName: kflashback-controller
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: controller
+          image: kflashback-controller:e2e
+          imagePullPolicy: Never
+          args:
+            - --config-name=kflashback
+            - --api-bind-address=:9090
+            - --metrics-bind-address=:8080
+            - --health-probe-bind-address=:8081
+            - --ui-dir=/ui
+            - --leader-elect
+          ports:
+            - name: metrics
+              containerPort: 8080
+              protocol: TCP
+            - name: health
+              containerPort: 8081
+              protocol: TCP
+            - name: api
+              containerPort: 9090
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: health
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: health
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+          volumeMounts:
+            - name: data
+              mountPath: /data
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: kflashback-data
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: kflashback-data
+  namespace: kflashback-system
+  labels:
+    app.kubernetes.io/name: kflashback
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kflashback-api
+  namespace: kflashback-system
+  labels:
+    app.kubernetes.io/name: kflashback
+    app.kubernetes.io/component: api
+spec:
+  type: ClusterIP
+  ports:
+    - name: api
+      port: 9090
+      targetPort: api
+      protocol: TCP
+  selector:
+    app.kubernetes.io/name: kflashback
+    app.kubernetes.io/component: controller

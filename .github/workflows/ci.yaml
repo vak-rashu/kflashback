@@ -144,3 +144,12 @@ jobs:
             config/samples/sample-config.yaml \
             config/samples/sample-config-postgres.yaml \
             config/samples/sample-policy.yaml
+
+  # E2E Test Suite
+  sqlite_e2e_test:
+    name: SQLite E2E Test setup
+    runs-on:  ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 

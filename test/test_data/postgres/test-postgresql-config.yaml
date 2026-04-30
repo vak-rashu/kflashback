@@ -1,0 +1,20 @@
+apiVersion: flashback.io/v1alpha1
+kind: KFlashbackConfig
+metadata:
+  name: kflashback
+spec:
+  storage:
+    backend: postgres
+    # dsn: "postgres://localhost:5432/kflashback?sslmode=disable"
+    credentialsSecret:
+      name: kflashback-db-credentials
+      namespace: kflashback-system
+      key: dsn
+  server:
+    apiAddress: ":9090"
+    metricsAddress: ":8080"
+    healthAddress: ":8081"
+  controller:
+    leaderElection: true
+    reconcileInterval: "5m"
+
