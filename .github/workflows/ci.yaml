@@ -155,32 +155,9 @@ jobs:
     needs: [go, integration, ui, docker, manifests]
     env:
       STORAGE_BACKEND:  "sqlite"
+      KIND_VERSION: "v0.24.0"
     steps:
       - uses: actions/checkout@v4
-      
-      - name: Cache KinD Binary
-        id: kind
-        uses: actions/cache@v4
-        with:
-          path: ~/.local/bin/kind
-          key: ${{ runner.os }}-kind-${{ env.KIND_VERSION }}
-
-      - name: Install KInD
-        if: steps.cache-kind.outputs.cache-hit != 'true'
-        run: |
-          KIND_VERSION=v0.24.0
-          mkdir -p ~/.local/bin
-          curl -Lo ./kind https://k8s.io{KIND_VERSION}/kind-linux-amd64
-          chmod +x ./kind
-
-      - name: Add to Path
-        run: echo "$HOME/.local/bin" >> $GITHUB_PATH
-        
-      # - name: Install kubectl
-      #   run:  |
-      #     curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
-      #     chmod +x kubectl
-      #     sudo mv kubectl /usr/local/bin/
       
       - name: Pull KinD Node image
         run:  docker pull kindest/node@sha256:c48c62eac5da28cdadcf560d1d8616cfa6783b58f0d94cf63ad1bf49600cb027
@@ -188,7 +165,6 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-          cache: false
       
       - name: Run SQLite E2E Test
         working-directory:  ./test
@@ -206,42 +182,18 @@ jobs:
     needs: [go, integration, ui, docker, manifests]
     env:
       STORAGE_BACKEND:  "postgresql"
+      KIND_VERSION: "v0.24.0"
     steps:
       - uses: actions/checkout@v4
-      
-      - name: Cache KinD Binary
-        id: kind
-        uses: actions/cache@v4
-        with:
-          path: ~/.local/bin/kind
-          key: ${{ runner.os }}-kind-${{ env.KIND_VERSION }}
 
-      - name: Install KInD
-        if: steps.cache-kind.outputs.cache-hit != 'true'
-        run: |
-          KIND_VERSION=v0.24.0
-          mkdir -p ~/.local/bin
-          curl -Lo ./kind https://k8s.io{KIND_VERSION}/kind-linux-amd64
-          chmod +x ./kind
-
-      - name: Add to Path
-        run: echo "$HOME/.local/bin" >> $GITHUB_PATH
-        
-      # - name: Install kubectl
-      #   run:  |
-      #     curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
-      #     chmod +x kubectl
-      #     sudo mv kubectl /usr/local/bin/
-      
       - name: Pull KinD Node image
         run:  docker pull kindest/node@sha256:c48c62eac5da28cdadcf560d1d8616cfa6783b58f0d94cf63ad1bf49600cb027
 
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-          cache: false
       
-      - name: Run SQLite E2E Test
+      - name: Run Postgresql E2E Test
         working-directory:  ./test
         run:  go test -race -tags=e2e -v ./...
       
@@ -250,4 +202,5 @@ jobs:
           docker stop $(docker ps -q)
           docker rm $(docker ps -q)
           docker system prune --volumes -af
+
 
