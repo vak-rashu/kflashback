@@ -49,12 +49,16 @@ var (
 
 func TestMain(m *testing.M) {
 
+	storageBackend := os.Getenv("STORAGE_BACKEND")
+	if storageBackend != "sqlite" && storageBackend != "postgresql" {
+		log.Fatalf("invalid STORAGE_BACKEND %q: must be 'sqlite' or 'postgresql'", storageBackend)
+	}
+
 	testenv = env.New()
 	kindClusterName := envconf.RandomName("kind-cluster", 10)
-	kindCluster := kind.NewCluster(kindClusterName)
 
 	testenv.Setup(
-		envfuncs.CreateCluster(kindCluster, kindClusterName),
+		envfuncs.CreateCluster(kind.NewProvider(), kindClusterName),
 		envfuncs.CreateNamespace(namespace),
 
 		// Applying CRDs
@@ -67,7 +71,8 @@ func TestMain(m *testing.M) {
 		applyKflashbackConfig(),
 
 		// Build the Docker Image
-		buildDockerImage(kindCluster),
+		buildDockerImage(),
+		envfuncs.LoadDockerImageToCluster(kindClusterName, dockerImage),
 
 		deployKflashbackController(),
 
@@ -81,6 +86,7 @@ func TestMain(m *testing.M) {
 	// Cleaning up the resources
 
 	testenv.Finish(
+
 		cleanUpResources(),
 
 		envfuncs.DeleteNamespace(namespace),
@@ -93,7 +99,7 @@ func applyCRD() env.Func {
 	return func(ctx context.Context, cfg *envconf.Config) (context.Context, error) {
 		log.Println("Applying CRDs")
 
-		if p := utils.RunCommand(fmt.Sprintf("kubectl apply -f %s", crdPath)); p.Err() != nil {
+		if p := utils.RunCommandContext(ctx, fmt.Sprintf("kubectl apply -f %s", crdPath)); p.Err() != nil {
 			log.Printf("Failed to deploy kflashback: %s: %s", p.Err(), p.Out())
 			return ctx, p.Err()
 		}
@@ -105,7 +111,7 @@ func applyRBAC() env.Func {
 	return func(ctx context.Context, cfg *envconf.Config) (context.Context, error) {
 		log.Println("Applying RBAC Policy")
 
-		if p := utils.RunCommand(fmt.Sprintf("kubectl apply -f %s", rbacPath)); p.Err() != nil {
+		if p := utils.RunCommandContext(ctx, fmt.Sprintf("kubectl apply -f %s", rbacPath)); p.Err() != nil {
 			log.Printf("Failed to deploy kflashback RBAC Policy: %s: %s", p.Err(), p.Out())
 			return ctx, p.Err()
 		}
@@ -121,7 +127,7 @@ func applyKflashbackConfig() env.Func {
 		case "sqlite":
 			log.Println("Apply SQLite kflashback Config")
 
-			if p := utils.RunCommand(fmt.Sprintf("kubectl apply -f %s", sqliteConfigPath)); p.Err() != nil {
+			if p := utils.RunCommandContext(ctx, fmt.Sprintf("kubectl apply -f %s", sqliteConfigPath)); p.Err() != nil {
 				log.Printf("Failed to deploy SQLite Policy: %s: %s", p.Err(), p.Out())
 				return ctx, p.Err()
 			}
@@ -129,7 +135,7 @@ func applyKflashbackConfig() env.Func {
 
 			// Step 1 - deploy postgres inside KinD
 			log.Println("Deploying Postgres inside KinD")
-			if p := utils.RunCommand(fmt.Sprintf("kubectl apply -f %s", postgresDeployPath)); p.Err() != nil {
+			if p := utils.RunCommandContext(ctx, fmt.Sprintf("kubectl apply -f %s", postgresDeployPath)); p.Err() != nil {
 				log.Printf("Failed to deploy Postgres: %s: %s", p.Err(), p.Out())
 				return ctx, p.Err()
 			}
@@ -148,7 +154,7 @@ func applyKflashbackConfig() env.Func {
 
 			// Step 3 - create the secret with DSN
 			log.Println("Creating Postgres credentials secret")
-			if p := utils.RunCommand(fmt.Sprintf(
+			if p := utils.RunCommandContext(ctx, fmt.Sprintf(
 				"kubectl create secret generic kflashback-db-credentials --namespace=%s --from-literal=dsn=%s",
 				namespace,
 				postgresDSN,
@@ -161,34 +167,33 @@ func applyKflashbackConfig() env.Func {
 
 			// Step 4 - apply postgres kflashback config
 			log.Println("Applying Postgres KFlashbackConfig")
-			if p := utils.RunCommand(fmt.Sprintf("kubectl apply -f %s", postgresConfigPath)); p.Err() != nil {
+			if p := utils.RunCommandContext(ctx, fmt.Sprintf("kubectl apply -f %s", postgresConfigPath)); p.Err() != nil {
 				log.Printf("Failed to apply Postgres config: %s: %s", p.Err(), p.Out())
 				return ctx, p.Err()
 			}
 
 			time.Sleep(10 * time.Second)
+
+		default:
+			return ctx, fmt.Errorf("unknown STORAGE_BACKEND: %q, must be 'sqlite' or 'postgresql'", storageBackend)
+
 		}
 
 		return ctx, nil
 	}
 }
 
-func buildDockerImage(kindCluster *kind.Cluster) env.Func {
+func buildDockerImage() env.Func {
 	return func(ctx context.Context, cfg *envconf.Config) (context.Context, error) {
 		log.Println("Building the Docker Image...")
 
-		if p := utils.RunCommand(fmt.Sprintf("docker build -t %s .. -f %s", dockerImage, dockerFile)); p.Err() != nil {
+		if p := utils.RunCommandContext(ctx, fmt.Sprintf("docker build -t %s .. -f %s", dockerImage, dockerFile)); p.Err() != nil {
 			log.Printf("Failed to docker image: %s: %s", p.Err(), p.Out())
 			return ctx, p.Err()
 		}
 
 		// Loading the Docker Image to KinD Cluster
 		log.Printf("Loading the Docker Image to KinD Cluster")
-
-		if err := kindCluster.LoadImage(ctx, dockerImage); err != nil {
-			log.Printf("Failed to load image into KinD: %s", err)
-			return ctx, err
-		}
 
 		return ctx, nil
 	}
@@ -201,15 +206,17 @@ func deployKflashbackController() env.Func {
 
 		switch storageBackend := os.Getenv("STORAGE_BACKEND"); storageBackend {
 		case "sqlite":
-			if p := utils.RunCommand(fmt.Sprintf("kubectl apply -f %s", sqliteControllerPath)); p.Err() != nil {
+			if p := utils.RunCommandContext(ctx, fmt.Sprintf("kubectl apply -f %s", sqliteControllerPath)); p.Err() != nil {
 				log.Printf("Failed to deploy the controller")
 				return ctx, p.Err()
 			}
 		case "postgresql":
-			if p := utils.RunCommand(fmt.Sprintf("kubectl apply -f %s", postgresControllerPath)); p.Err() != nil {
+			if p := utils.RunCommandContext(ctx, fmt.Sprintf("kubectl apply -f %s", postgresControllerPath)); p.Err() != nil {
 				log.Printf("Failed to deploy the controller")
 				return ctx, p.Err()
 			}
+		default:
+			return ctx, fmt.Errorf("unknown STORAGE_BACKEND: %q, must be 'sqlite' or 'postgresql'", storageBackend)
 		}
 
 		// waiting for the deployment to be complete
@@ -224,6 +231,7 @@ func deployKflashbackController() env.Func {
 			log.Printf("Timed out while waiting for the controller deployment: %s", err)
 			return ctx, err
 		}
+
 		return ctx, nil
 	}
 }
@@ -232,7 +240,7 @@ func applyTrackingPolicy() env.Func {
 	return func(ctx context.Context, cfg *envconf.Config) (context.Context, error) {
 		log.Println("Applying tracking policy")
 
-		if p := utils.RunCommand(fmt.Sprintf("kubectl apply -f %s", trackPolicyPath)); p.Err() != nil {
+		if p := utils.RunCommandContext(ctx, fmt.Sprintf("kubectl apply -f %s", trackPolicyPath)); p.Err() != nil {
 			log.Printf("Failed to deploy resources: %s: %s", p.Err(), p.Out())
 			return ctx, p.Err()
 		}
@@ -249,6 +257,7 @@ func portForwarding() env.Func {
 		if err := cmd.Start(); err != nil {
 			return ctx, fmt.Errorf("failed to start port-forward: %w", err)
 		}
+
 		time.Sleep(5 * time.Second) // wait for it to be ready
 
 		return ctx, nil
@@ -261,12 +270,12 @@ func cleanUpResources() env.Func {
 
 		switch storageBackend := os.Getenv("STORAGE_BACKEND"); storageBackend {
 		case "sqlite":
-			utils.RunCommand(fmt.Sprintf("kubectl delete -f %s", sqliteControllerPath))
+			utils.RunCommandContext(ctx, fmt.Sprintf("kubectl delete -f %s", sqliteControllerPath))
 		case "postgresql":
-			utils.RunCommand(fmt.Sprintf("kubectl delete -f %s", postgresControllerPath))
+			utils.RunCommandContext(ctx, fmt.Sprintf("kubectl delete -f %s", postgresControllerPath))
 		}
-		utils.RunCommand(fmt.Sprintf("kubectl delete -f %s", rbacPath))
-		utils.RunCommand(fmt.Sprintf("kubectl delete -f %s", crdPath))
+		utils.RunCommandContext(ctx, fmt.Sprintf("kubectl delete -f %s", rbacPath))
+		utils.RunCommandContext(ctx, fmt.Sprintf("kubectl delete -f %s", crdPath))
 		return ctx, nil
 	}
 }
