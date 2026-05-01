@@ -155,7 +155,7 @@ jobs:
     needs: [go, integration, ui, docker, manifests]
     env:
       STORAGE_BACKEND:  "sqlite"
-      KIND_VERSION: "v0.24.0"
+
     steps:
       - uses: actions/checkout@v4
       
@@ -165,6 +165,7 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
+          cache: false
       
       - name: Run SQLite E2E Test
         working-directory:  ./test
@@ -182,7 +183,7 @@ jobs:
     needs: [go, integration, ui, docker, manifests]
     env:
       STORAGE_BACKEND:  "postgresql"
-      KIND_VERSION: "v0.24.0"
+
     steps:
       - uses: actions/checkout@v4
 
@@ -192,7 +193,7 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-      
+          cache: false      
       - name: Run Postgresql E2E Test
         working-directory:  ./test
         run:  go test -race -tags=e2e -v ./...
@@ -202,5 +203,3 @@ jobs:
           docker stop $(docker ps -q)
           docker rm $(docker ps -q)
           docker system prune --volumes -af
-
-
