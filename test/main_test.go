@@ -128,14 +128,14 @@ func applyKflashbackConfig() env.Func {
 		case "postgresql":
 
 			// Step 1 - deploy postgres inside KinD
-			log.Println("Deploying Postgres inside KinD...")
+			log.Println("Deploying Postgres inside KinD")
 			if p := utils.RunCommand(fmt.Sprintf("kubectl apply -f %s", postgresDeployPath)); p.Err() != nil {
 				log.Printf("Failed to deploy Postgres: %s: %s", p.Err(), p.Out())
 				return ctx, p.Err()
 			}
 
 			// Step 2 - wait for postgres to be ready
-			log.Println("Waiting for Postgres to be ready...")
+			log.Println("Waiting for Postgres to be ready")
 			client := cfg.Client()
 			if err := wait.For(
 				conditions.New(client.Resources()).DeploymentAvailable("postgres", namespace),
@@ -147,9 +147,9 @@ func applyKflashbackConfig() env.Func {
 			}
 
 			// Step 3 - create the secret with DSN
-			log.Println("Creating Postgres credentials secret...")
+			log.Println("Creating Postgres credentials secret")
 			if p := utils.RunCommand(fmt.Sprintf(
-				"kubectl create secret generic kflashback-db-credentials --namespace=%s --from-literal=dsn='%s'",
+				"kubectl create secret generic kflashback-db-credentials --namespace=%s --from-literal=dsn=%s",
 				namespace,
 				postgresDSN,
 			)); p.Err() != nil {
@@ -157,12 +157,16 @@ func applyKflashbackConfig() env.Func {
 				return ctx, p.Err()
 			}
 
+			time.Sleep(10 * time.Second)
+
 			// Step 4 - apply postgres kflashback config
-			log.Println("Applying Postgres KFlashbackConfig...")
+			log.Println("Applying Postgres KFlashbackConfig")
 			if p := utils.RunCommand(fmt.Sprintf("kubectl apply -f %s", postgresConfigPath)); p.Err() != nil {
 				log.Printf("Failed to apply Postgres config: %s: %s", p.Err(), p.Out())
 				return ctx, p.Err()
 			}
+
+			time.Sleep(10 * time.Second)
 		}
 
 		return ctx, nil
